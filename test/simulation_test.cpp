@@ -52,17 +52,20 @@ int main()
     //Define initial sim conditions
     // std::vector<double> u0{1,2,3,-3,-2,0};
     std::vector<double> u0{0,0,0,0,0,0,0,0};
+    u0.reserve(1000);
     state_type x = {0.0, 0.0};
     std::vector<double> pos, vel, desired_pos, desired_vel, sim_time_vec;//Holds results for plotting
-
+    pos.reserve(1000);
+    vel.reserve(1000);
+    desired_pos.reserve(1000);
+    desired_vel.reserve(1000);
+    sim_time_vec.reserve(1000);
 
     auto step_simulation = [&](){
         std::vector<double> u_time = mpc.get_control_timepoints();
         // print_control_input(u_time);
         horizon_predictor.empty_time_vec();
         horizon_predictor.empty_state_vec();
-        // std::cout<<"Stepping sim\n";
-        // std::cout<<"Pos before step: "<<x.at(0)<<'\n';
 
         //Whole trajectory mode
         horizon_predictor.empty_state_vec();
@@ -70,12 +73,6 @@ int main()
         horizon_predictor.step_over_horizon(x, sim_dt, sim_dt, u_time, u0);
         auto calculated_trajectory = horizon_predictor.get_state_vec();
         x=calculated_trajectory.back();
-
-
-        //Single step mode
-        // horizon_predictor.single_step(x, sim_dt, sim_dt, u_time, u0);
-        // std::cout<<"Pos after step: "<<x.at(0)<<'\n';
-        // std::cout<<"Size of state is: "<<calculated_trajectory.size()<<std::endl;
 
         //Update plotting vectors
         pos.push_back(x.at(0));
@@ -85,7 +82,7 @@ int main()
 
     //Loop through simulation steps
     for(int i=0;i<num_sim_steps;++i){
-        u0 = std::vector<double>{0,0,0,0,0,0,0,0};;//Try set initial guess at each iteration
+        u0 = std::vector<double>{0,0,0,0,0,0,0,0};//Try set initial guess at each iteration
 
         double cur_t = i*sim_dt;
         sim_time_vec.push_back(cur_t);
@@ -95,6 +92,10 @@ int main()
         std::vector<double> eval_vels{};
         std::vector<double> eval_time{};
         horizon_type desired_state{};
+        eval_points.reserve(1000);
+        eval_vels.reserve(1000);
+        eval_time.reserve(1000);
+        desired_state.reserve(1000);
         for(int j=0;j<num_buffer_steps;++j){
             const double desired_trajectory_buffer_time = cur_t+j*horizon_dt;
             eval_time.push_back(desired_trajectory_buffer_time);
@@ -109,9 +110,6 @@ int main()
         //Solve for new control inputs
         mpc.find_optimal_control_inputs(x, desired_state, horizon_duration_s,horizon_dt, u0);
         std::vector<double> control_timepoints = mpc.get_control_timepoints();
-
-        // std::cout<<"Optimal control timepoints\n";
-        // print_control_input(control_timepoints);
 
         //Step sim
         step_simulation();
@@ -144,53 +142,12 @@ int main()
 
 
 
-
-
-
-
-
-
-
-    // std::cout<<"Initial guess\n";
-    // print_control_input(u0);
-    // std::cout<<std::endl;
-    // std::cout<<"Solution\n";
-    // print_control_input(u0);
-    // std::cout<<std::endl;
-
-    // //Define control inputs
-    // std::vector<double> u_time{0,2,4,6,8,10};
-    // std::vector<double> u_vals{0,1,2,3,-3,-1};
-
-
-    // const horizon_type predicted_horizon = horizon_predictor.get_state_vec();
-    // const std::vector<double> time_vec = horizon_predictor.get_time_vec();
-
-    // const std::size_t num_prediction_points = predicted_horizon.size();
-    // for(auto cur_state: predicted_horizon){
-    //     xpos.push_back(cur_state.at(0));
-    //     vpos.push_back(cur_state.at(1));
-    // }
-
-
-
+    //Plot final results of sim
     plt::plot(sim_time_vec, desired_pos);
     plt::plot(sim_time_vec, desired_vel);
     plt::plot(sim_time_vec, pos,{{"linestyle", "--"}});
     plt::plot(sim_time_vec, vel,{{"linestyle", "--"}});
     plt::show();
-
-
-    
-
-
-
-    // ---------------------------------------------------------
-    // GNUPlot (simple pipe-based interface)
-    // ---------------------------------------------------------
-    // plt::plot(time_vec, xpos);
-    // plt::plot(time_vec, vpos);
-    // plt::show();
 
     return 0;
 }

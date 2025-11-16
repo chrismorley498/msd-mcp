@@ -46,10 +46,16 @@ int main()
 
     //Vectors to hold results for plotting
     std::vector<double> pos, vel, desired_pos, desired_vel;//Holds results for plotting
+    pos.reserve(1000);
+    vel.reserve(1000);
+    desired_pos.reserve(1000);
+    desired_vel.reserve(1000);
 
     //Generate desired trajectory
     std::vector<double> eval_time{};
+    eval_time.reserve(1000);
     horizon_type desired_state{};
+    desired_state.reserve(1000);
     for(int i=0;i<num_horizon_steps;++i){
         const double cur_t = i*horizon_dt;
         eval_time.push_back(cur_t);
@@ -68,6 +74,7 @@ int main()
     //Parse predicted states for plotting
     const horizon_type predicted_horizon = horizon_predictor.get_state_vec();
     std::vector<double> u{};
+    u.reserve(1000);
     for(int i=0;i<num_horizon_steps;++i){
         pos.push_back(predicted_horizon.at(i).at(0));
         vel.push_back(predicted_horizon.at(i).at(1));

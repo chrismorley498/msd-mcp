@@ -99,7 +99,10 @@ public:
 
     HorizonPrediction(const Dynamics& dyn)
         : system_(dyn)
-    {}
+    {
+        t_vec_.reserve(1000);
+        state_vec_.reserve(1000);
+    }
 
     void set_dynamics_function(const Dynamics& f) {
         system_.set_dynamics_function(f);
@@ -182,7 +185,9 @@ public:
 
     MPC(const Dynamics& dyn)
         : horizon_predictor_(dyn)
-    {}
+    {
+        control_point_times_.reserve(1000);
+    }
 
     void set_dynamics_function(const Dynamics& f) {
         horizon_predictor_.set_dynamics_function(f);
