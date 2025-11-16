@@ -50,7 +50,8 @@ int main()
     HorizonPrediction<state_type, decltype(mass_spring_damper_dynamics_function)> horizon_predictor{mass_spring_damper_dynamics_function};
 
     //Define initial sim conditions
-    std::vector<double> u0{1,2,3,-3,-2,0};
+    // std::vector<double> u0{1,2,3,-3,-2,0};
+    std::vector<double> u0{0,0,0,0,0,0,0,0};
     state_type x = {0.0, 0.0};
     std::vector<double> pos, vel, desired_pos, desired_vel, sim_time_vec;//Holds results for plotting
 
@@ -60,20 +61,31 @@ int main()
         // print_control_input(u_time);
         horizon_predictor.empty_time_vec();
         horizon_predictor.empty_state_vec();
-        std::cout<<"Stepping sim\n";
-        std::cout<<"Pos before step: "<<x.at(0);
-        // horizon_predictor.step_over_horizon(x, sim_dt, sim_dt, u_time, u0);
-        horizon_predictor.single_step(x, sim_dt, sim_dt, u_time, u0);
-        // auto calculated_trajectory = horizon_predictor.get_state_vec();
-        // x=calculated_trajectory.back();
-        std::cout<<"Pos after step: "<<x.at(0)<<'\n';
+        // std::cout<<"Stepping sim\n";
+        // std::cout<<"Pos before step: "<<x.at(0)<<'\n';
+
+        //Whole trajectory mode
+        horizon_predictor.empty_state_vec();
+        horizon_predictor.empty_time_vec();
+        horizon_predictor.step_over_horizon(x, sim_dt, sim_dt, u_time, u0);
+        auto calculated_trajectory = horizon_predictor.get_state_vec();
+        x=calculated_trajectory.back();
+
+
+        //Single step mode
+        // horizon_predictor.single_step(x, sim_dt, sim_dt, u_time, u0);
+        // std::cout<<"Pos after step: "<<x.at(0)<<'\n';
         // std::cout<<"Size of state is: "<<calculated_trajectory.size()<<std::endl;
+
+        //Update plotting vectors
         pos.push_back(x.at(0));
         vel.push_back(x.at(1));
+
     };
 
     //Loop through simulation steps
     for(int i=0;i<num_sim_steps;++i){
+        u0 = std::vector<double>{0,0,0,0,0,0,0,0};;//Try set initial guess at each iteration
 
         double cur_t = i*sim_dt;
         sim_time_vec.push_back(cur_t);
@@ -84,8 +96,9 @@ int main()
         std::vector<double> eval_time{};
         horizon_type desired_state{};
         for(int j=0;j<num_buffer_steps;++j){
-            eval_time.push_back(cur_t);
-            desired_state.push_back({sin(2*M_PI*desired_state_motion_frequency_hz*cur_t), 2*M_PI*desired_state_motion_frequency_hz*cos(2*M_PI*desired_state_motion_frequency_hz*cur_t)});
+            const double desired_trajectory_buffer_time = cur_t+j*horizon_dt;
+            eval_time.push_back(desired_trajectory_buffer_time);
+            desired_state.push_back({sin(2*M_PI*desired_state_motion_frequency_hz*desired_trajectory_buffer_time), 2*M_PI*desired_state_motion_frequency_hz*cos(2*M_PI*desired_state_motion_frequency_hz*desired_trajectory_buffer_time)});
             eval_points.push_back(desired_state.back().at(0));
             eval_vels.push_back(desired_state.back().at(1));
         }
@@ -95,9 +108,37 @@ int main()
 
         //Solve for new control inputs
         mpc.find_optimal_control_inputs(x, desired_state, horizon_duration_s,horizon_dt, u0);
+        std::vector<double> control_timepoints = mpc.get_control_timepoints();
+
+        // std::cout<<"Optimal control timepoints\n";
+        // print_control_input(control_timepoints);
 
         //Step sim
         step_simulation();
+
+
+
+        // std::vector<double> u_time = mpc.get_control_timepoints();
+        // horizon_predictor.empty_state_vec();
+        // horizon_predictor.empty_time_vec();
+        // horizon_predictor.step_over_horizon(x, horizon_duration_s, horizon_dt, u_time, u0);
+        // auto calculated_trajectory = horizon_predictor.get_state_vec();
+        // x=calculated_trajectory.front();
+        // std::vector<double> inter_pos, inter_vel, inter_u;
+        // for(int j=0;j<num_buffer_steps;++j){
+        //     inter_pos.push_back(calculated_trajectory.at(j).at(0));
+        //     inter_vel.push_back(calculated_trajectory.at(j).at(1));
+        //     inter_u.push_back(linear_interpolate(u_time, u0,j*horizon_dt));
+        // }
+        // plt::plot(eval_time, eval_points);
+        // plt::plot(eval_time, eval_vels);
+        // plt::plot(eval_time, inter_pos,{{"linestyle", "--"}});
+        // plt::plot(eval_time, inter_vel,{{"linestyle", "--"}});
+        // plt::plot(eval_time, inter_u);
+        // plt::show();
+        // plt::clear();
+
+
 
     }//End of sim loop
 
@@ -133,10 +174,10 @@ int main()
 
 
 
-    plt::plot(sim_time_vec, pos);
-    plt::plot(sim_time_vec, vel);
-    plt::plot(sim_time_vec, desired_pos,{{"linestyle", "--"}});
-    plt::plot(sim_time_vec, desired_vel,{{"linestyle", "--"}});
+    plt::plot(sim_time_vec, desired_pos);
+    plt::plot(sim_time_vec, desired_vel);
+    plt::plot(sim_time_vec, pos,{{"linestyle", "--"}});
+    plt::plot(sim_time_vec, vel,{{"linestyle", "--"}});
     plt::show();
 
 

@@ -120,14 +120,19 @@ public:
         double t = 0.0;
 
         for (std::size_t i = 0; i < num_steps; ++i) {
-            t_vec_.push_back(t);
-            state_vec_.push_back(X);
+            // t_vec_.push_back(t);
+            // state_vec_.push_back(X);
 
             double u = linear_interpolate(u_timepoints, u_vals, t);
             system_.set_control_input(u);
 
             stepper_.do_step(system_, X, t, dt);
             t += dt;
+
+
+            t_vec_.push_back(t);
+            state_vec_.push_back(X);
+
         }
     }
 
@@ -143,7 +148,7 @@ public:
         });
 
         double u = linear_interpolate(u_timepoints, u_vals, 0.0);
-        std::cout<<"u: "<<u<<'\n';
+        // std::cout<<"u: "<<u<<'\n';
         system_.set_control_input(u);
         constexpr double t_place_holder{0.0};
         stepper_.do_step(system_, X, t_place_holder, dt);   
@@ -220,11 +225,13 @@ public:
             const auto& desired = d->desired_state;
 
             double position_error = 0.0;
+            double velocity_error = 0.0;
 
-            for (std::size_t i = 0; i < desired.size(); ++i)
+            for (std::size_t i = 0; i < desired.size(); ++i){
                 position_error += std::abs(pred[i][0] - desired[i][0]);
-
-            return position_error;
+                velocity_error += std::abs(pred[i][1] - desired[i][1]);
+            }
+            return position_error + 0.2*velocity_error;
         };
 
         IKData<T, Dynamics> ik_data{
@@ -238,7 +245,7 @@ public:
 
         nlopt::opt opt(nlopt::LN_COBYLA, num_control_points);
         opt.set_min_objective(cost_function, &ik_data);
-        opt.set_ftol_rel(1e-3);
+        opt.set_ftol_rel(1e-5);
 
         double val{};
         opt.optimize(u0, val);
