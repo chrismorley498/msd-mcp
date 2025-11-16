@@ -16,6 +16,18 @@ typedef std::array<double, 2> state_type;
 
 int main()
 {
+    // //Define dynamics of the system
+    // std::function<void(const state_type, state_type, const double)> mass_spring_damper_dynamics= [](const state_type &x, state_type &dxdt, const double /* t */){
+
+    // };
+    auto mass_spring_damper_dynamics_function = [](const auto &x, auto &dxdt, const double t, const double u){
+
+        dxdt[0] = x[1];    // x' = v
+        dxdt[1] = -x[0]-2*x[1] + u;   // v' = -x
+
+    };
+
+
     // Initial conditions: x(0) = 1, v(0) = 0
     state_type x = {0.0, 0.0};
 
@@ -27,7 +39,8 @@ int main()
 
     using state_type = std::array<double,2>;
     using horizon_type = std::vector<state_type>;
-    HorizonPrediction<state_type> horizon_predictor{};
+    HorizonPrediction<state_type, decltype(mass_spring_damper_dynamics_function)> horizon_predictor{mass_spring_damper_dynamics_function};
+    // horizon_predictor.set_dynamics_function(mass_spring_damper_dynamics_function);
 
 
     //Define hyper parameters about trajectory
@@ -56,7 +69,8 @@ int main()
     };
 
 
-    MPC<state_type> mpc{};
+    MPC<state_type, decltype(mass_spring_damper_dynamics_function)> mpc{mass_spring_damper_dynamics_function};
+    // mpc.set_dynamics_function(mass_spring_damper_dynamics_function);
     std::vector<double> u0{1,2,3,-3,-2,0};
     std::cout<<"Initial guess\n";
     print_control_input(u0);
