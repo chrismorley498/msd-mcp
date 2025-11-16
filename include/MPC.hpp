@@ -9,6 +9,7 @@
 
 using namespace boost::numeric::odeint;
 typedef std::array<double, 2> state_type;
+using control_input_type = double;
 
 
 /* ============================================================
@@ -115,6 +116,7 @@ public:
                            const std::vector<double>& u_vals)
     {
         const std::size_t num_steps = tf/dt;
+        // std::cout<<"Num steps: "<<num_steps<<std::endl;
         double t = 0.0;
 
         for (std::size_t i = 0; i < num_steps; ++i) {
@@ -128,6 +130,25 @@ public:
             t += dt;
         }
     }
+
+
+    void single_step(T& X, double tf, double dt,
+                           std::vector<double>& u_timepoints,
+                           const std::vector<double>& u_vals)
+    {
+
+        const double u0=u_timepoints.front();
+        std::for_each(u_timepoints.begin(),u_timepoints.end(), [&](double &val){
+            val-=u0;
+        });
+
+        double u = linear_interpolate(u_timepoints, u_vals, 0.0);
+        std::cout<<"u: "<<u<<'\n';
+        system_.set_control_input(u);
+        constexpr double t_place_holder{0.0};
+        stepper_.do_step(system_, X, t_place_holder, dt);   
+    }
+
 
 private:
 
@@ -223,6 +244,10 @@ public:
         opt.optimize(u0, val);
 
         return u0;
+    }
+
+    std::vector<double> get_control_timepoints(){
+        return control_point_times_;
     }
 
 private:
