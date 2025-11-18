@@ -1,11 +1,22 @@
 #pragma once
 
+// #define BOOST_MPL_LIMIT_LIST_SIZE 30
+
+//For robotics library
+#include <pinocchio/algorithm/kinematics.hpp>
+#include <pinocchio/algorithm/frames.hpp>
+#include <pinocchio/parsers/urdf.hpp>
+#include "pinocchio/algorithm/rnea.hpp"
+
+
 #include <vector>
 #include <eigen3/Eigen/Dense>
 #include <array>
 #include <algorithm>
 #include <nlopt.hpp>
 #include <boost/numeric/odeint.hpp>
+
+
 
 using namespace boost::numeric::odeint;
 typedef std::array<double, 2> state_type;

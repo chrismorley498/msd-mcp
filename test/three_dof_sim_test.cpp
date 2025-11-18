@@ -18,13 +18,6 @@ using state_type = std::array<double,2>;
 using horizon_type = std::vector<state_type>;
 
 
-//For robotics library
-#include <pinocchio/algorithm/kinematics.hpp>
-#include <pinocchio/algorithm/frames.hpp>
-#include <pinocchio/parsers/urdf.hpp>
-#include "pinocchio/algorithm/rnea.hpp"
-
-
 struct RobotModel{
 
     RobotModel(const std::string urdf_str){
@@ -37,7 +30,7 @@ private:
 
     //Pinocchio Objects
     pinocchio::Model model;
-    // pinocchio::Data data;
+    pinocchio::Data data;
 
 
 };
