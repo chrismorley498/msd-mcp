@@ -22,7 +22,36 @@ struct RobotModel{
 
     RobotModel(const std::string urdf_str){
 
+        pinocchio::urdf::buildModel(urdf_str, model);
+        data=pinocchio::Data(model);
+
     };
+
+    void update_state(Eigen::VectorXd& q, Eigen::VectorXd& dq){
+
+        //Update forward kinematics
+        pinocchio::forwardKinematics(model, data, q, dq);
+        pinocchio::updateFramePlacements(model, data);
+        // pinocchio::framesForwardKinematics(model, data, q);//This single line can replace the two lines above.
+        // pinocchio::SE3 T_temp = data.oMf.at(ee_frame_id); // T is the transformation matrix (SE3)
+    }
+
+    Eigen::VectorXd compute_acceleration(Eigen::VectorXd& q, Eigen::VectorXd& dq, Eigen::VectorXd& tau){
+
+        Eigen::MatrixXd M;
+        Eigen::MatrixXd c;
+
+        pinocchio::computeAllTerms(model, data, q, dq);
+        M = data.M;       // Mass matrix
+        c = data.nle;     // Nonlinear effects (C*v + G)
+        // Eigen::VectorXd G = pinocchio::computeGeneralizedGravity(model, data, q);
+        Eigen::VectorXd a = M.ldlt().solve(tau - c); // joint acceleration: M*vdot = tau - C - G
+
+        return a;
+
+    }
+
+
 
 
 
@@ -39,16 +68,41 @@ int main()
 {
     // //Define dynamics of the system
     constexpr double mass{1.0};
-    auto mass_spring_damper_dynamics_function = [&](const auto &x, auto &dxdt, const double t, const double u){
+    auto mass_spring_damper_dynamics_function = [](const auto &x, auto &dxdt, const double t, const double u){
 
         dxdt[0] = 1/mass*(x[1]);    // x' = v
         dxdt[1] = 1/mass*(-x[0]-2*x[1] + u);   // v' = -x
 
     };
 
-    auto three_link_arm_dynamics_function = [](const auto &x, auto &dxdt, const double t, const double u){
+    RobotModel robot("/home/chris-morley/code/dev-ws/src/3DofAssemblyWithMotors/3DofAssembly_V2/urdf/3DofAssembly_V2.urdf");
+
+    auto three_link_arm_dynamics_function = [&](auto &x, auto &dxdt, const double t, auto& u){
+
+        Eigen::VectorXd q = Eigen::VectorXd::Zero(3);
+        Eigen::VectorXd dq = Eigen::VectorXd::Zero(3);
+        for(int i=0;i<3;++i){
+            q(i)=x(i);
+            dq(i)=x(i+3);
+        }
+        Eigen::VectorXd acc = robot.compute_acceleration(q, dq, u);
+        for(int i=0;i<3;++i){
+            dxdt(i)=x(i);
+            dxdt(i+3)=acc(i);
+        }
+        
 
     };
+
+
+    Eigen::VectorXd q = Eigen::VectorXd::Zero(3);
+    Eigen::VectorXd dq = Eigen::VectorXd::Zero(3);
+    Eigen::VectorXd X = Eigen::VectorXd::Zero(6);
+    Eigen::VectorXd dX = Eigen::VectorXd::Zero(6);
+    Eigen::VectorXd tau = Eigen::VectorXd::Ones(3);
+    constexpr double temp_t{0.0};
+    three_link_arm_dynamics_function(X,dX,temp_t,tau);
+    std::cout<<"Final joint state: "<<dX.transpose()<<std::endl;
 
     auto print_control_input = [](std::vector<double> vec){
         for(const auto val: vec){

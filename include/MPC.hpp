@@ -6,7 +6,9 @@
 #include <pinocchio/algorithm/kinematics.hpp>
 #include <pinocchio/algorithm/frames.hpp>
 #include <pinocchio/parsers/urdf.hpp>
+#include <pinocchio/algorithm/crba.hpp>     // Mass matrix
 #include "pinocchio/algorithm/rnea.hpp"
+#include <pinocchio/algorithm/compute-all-terms.hpp> // M, C, G together
 
 
 #include <vector>
