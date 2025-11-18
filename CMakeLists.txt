@@ -2,6 +2,12 @@ cmake_minimum_required(VERSION 3.5)
 
 project(msd-mpc)
 
+set(pinocchio_DIR "/opt/openrobots/lib/cmake/pinocchio")
+set(hpp-fcl_DIR "/opt/openrobots/lib/cmake/hpp-fcl")
+find_package(pinocchio REQUIRED)
+find_package(hpp-fcl REQUIRED)
+
+
 # set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_BUILD_TYPE Release)
 
