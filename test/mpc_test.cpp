@@ -34,10 +34,10 @@ int main()
     constexpr std::size_t num_horizon_steps = static_cast<std::size_t>(horizon_duration_s/horizon_dt);
 
     //Create MPC solver
-    MPC<state_type, decltype(mass_spring_damper_dynamics_function)> mpc{mass_spring_damper_dynamics_function};
+    MPC<state_type, decltype(mass_spring_damper_dynamics_function), double> mpc{mass_spring_damper_dynamics_function};
 
     //ODE stepper for simulation of plant
-    HorizonPrediction<state_type, decltype(mass_spring_damper_dynamics_function)> horizon_predictor{mass_spring_damper_dynamics_function};
+    HorizonPrediction<state_type, decltype(mass_spring_damper_dynamics_function), double> horizon_predictor{mass_spring_damper_dynamics_function};
 
     //Define initial sim conditions
     // std::vector<double> u0{1,2,3,-3,-2,0};

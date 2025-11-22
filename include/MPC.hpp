@@ -79,11 +79,11 @@ double polyeval(const Eigen::VectorXd coeffs, double x){
    1. SystemDynamics — templated, zero overhead
    ============================================================ */
 
-template<typename T, typename Dynamics>
+template<typename T, typename Dynamics, typename ControlInput>
 struct SystemDynamics
 {
     Dynamics dynamics_function_;   // stored with full type
-    double u_{0.0};
+    ControlInput u_{};
 
     // Constructor injection of the dynamics functor
     SystemDynamics(const Dynamics& dyn) : dynamics_function_(dyn) {}
@@ -93,7 +93,7 @@ struct SystemDynamics
         dynamics_function_(x, dxdt, 0.0, u_);
     }
 
-    void set_control_input(double u) { u_ = u; }
+    void set_control_input(ControlInput u) { u_ = u; }
 
     // Overwrite dynamics (same type)
     void set_dynamics_function(const Dynamics& f) {
@@ -106,7 +106,7 @@ struct SystemDynamics
    2. HorizonPrediction — templated on Dynamics too
    ============================================================ */
 
-template<typename T, typename Dynamics>
+template<typename T, typename Dynamics, typename ControlInput>
 class HorizonPrediction {
 public:
 
@@ -128,8 +128,8 @@ public:
     std::vector<double> get_time_vec(){ return t_vec_; }
 
     void step_over_horizon(T X, double tf, double dt,
-                           const std::vector<double>& u_timepoints,
-                           const std::vector<double>& u_vals)
+                           const std::vector<ControlInput>& u_timepoints,
+                           const std::vector<ControlInput>& u_vals)
     {
         const std::size_t num_steps = tf/dt;
         // std::cout<<"Num steps: "<<num_steps<<std::endl;
@@ -139,7 +139,7 @@ public:
             // t_vec_.push_back(t);
             // state_vec_.push_back(X);
 
-            double u = linear_interpolate(u_timepoints, u_vals, t);
+            ControlInput u = linear_interpolate(u_timepoints, u_vals, t);
             system_.set_control_input(u);
 
             stepper_.do_step(system_, X, t, dt);
@@ -155,7 +155,7 @@ public:
 
     void single_step(T& X, double tf, double dt,
                            std::vector<double>& u_timepoints,
-                           const std::vector<double>& u_vals)
+                           const std::vector<ControlInput>& u_vals)
     {
 
         const double u0=u_timepoints.front();
@@ -163,10 +163,10 @@ public:
             val-=u0;
         });
 
-        double u = linear_interpolate(u_timepoints, u_vals, 0.0);
+        ControlInput u = linear_interpolate(u_timepoints, u_vals, 0.0);
         // std::cout<<"u: "<<u<<'\n';
         system_.set_control_input(u);
-        constexpr double t_place_holder{0.0};
+        constexpr ControlInput t_place_holder{0.0};
         stepper_.do_step(system_, X, t_place_holder, dt);   
     }
 
@@ -176,7 +176,7 @@ private:
     runge_kutta_cash_karp54<state_type> stepper_;
     std::vector<double> t_vec_;
     std::vector<T> state_vec_;
-    SystemDynamics<T, Dynamics> system_;
+    SystemDynamics<T, Dynamics, ControlInput> system_;
 };
 
 
@@ -184,7 +184,7 @@ private:
    Forward declare IKData for MPC
    ============================================================ */
 
-template<typename T, typename Dynamics>
+template<typename T, typename Dynamics, typename ControlInput>
 struct IKData;
 
 
@@ -192,7 +192,7 @@ struct IKData;
    3. MPC — also templated on dynamics functor type
    ============================================================ */
 
-template<typename T, typename Dynamics>
+template<typename T, typename Dynamics, typename ControlInput>
 class MPC {
 public:
 
@@ -206,7 +206,7 @@ public:
         horizon_predictor_.set_dynamics_function(f);
     }
 
-    std::vector<double> find_optimal_control_inputs(
+    std::vector<ControlInput> find_optimal_control_inputs(
             T x0,
             std::vector<T>& desired_trajectory,
             double buffer_duration,
@@ -228,8 +228,8 @@ public:
                                 std::vector<double> &grad,
                                 void *data)
         {
-            IKData<T, Dynamics>* d = static_cast<IKData<T, Dynamics>*>(data);
-            MPC<T, Dynamics>* mpc = d->mpc_ptr;
+            IKData<T, Dynamics, ControlInput>* d = static_cast<IKData<T, Dynamics, ControlInput>*>(data);
+            MPC<T, Dynamics, ControlInput>* mpc = d->mpc_ptr;
 
             mpc->horizon_predictor_.empty_state_vec();
             mpc->horizon_predictor_.empty_time_vec();
@@ -252,7 +252,7 @@ public:
             return position_error + 0.2*velocity_error;
         };
 
-        IKData<T, Dynamics> ik_data{
+        IKData<T, Dynamics, ControlInput> ik_data{
             .mpc_ptr = this,
             .desired_state = desired_trajectory,
             .x0 = x0,
@@ -277,7 +277,7 @@ public:
 
 private:
 
-    HorizonPrediction<T, Dynamics> horizon_predictor_;
+    HorizonPrediction<T, Dynamics, ControlInput> horizon_predictor_;
 
     // Stored for the cost function
     std::vector<double> control_point_times_;
@@ -291,9 +291,9 @@ private:
    4. IKData definition
    ============================================================ */
 
-template<typename T, typename Dynamics>
+template<typename T, typename Dynamics, typename ControlInput>
 struct IKData {
-    MPC<T, Dynamics>* mpc_ptr;
+    MPC<T, Dynamics, ControlInput>* mpc_ptr;
 
     const std::vector<T>& desired_state;
     const T x0;

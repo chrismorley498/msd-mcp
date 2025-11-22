@@ -45,7 +45,8 @@ struct RobotModel{
         M = data.M;       // Mass matrix
         c = data.nle;     // Nonlinear effects (C*v + G)
         // Eigen::VectorXd G = pinocchio::computeGeneralizedGravity(model, data, q);
-        Eigen::VectorXd a = M.ldlt().solve(tau - c); // joint acceleration: M*vdot = tau - C - G
+        constexpr double DAMPING=0.1;
+        Eigen::VectorXd a = M.ldlt().solve(tau - c - DAMPING*dq); // joint acceleration: M*vdot = tau - C - G
 
         return a;
 
@@ -82,14 +83,25 @@ int main()
         Eigen::VectorXd q = Eigen::VectorXd::Zero(3);
         Eigen::VectorXd dq = Eigen::VectorXd::Zero(3);
         for(int i=0;i<3;++i){
-            q(i)=x(i);
-            dq(i)=x(i+3);
+            q(i)=x.at(i);
+            dq(i)=x.at(i+3);
         }
+
+
+        // std::cout<<"q: "<<q.transpose()<<std::endl;
+        // std::cout<<"dq: "<<dq.transpose()<<std::endl;
+
         Eigen::VectorXd acc = robot.compute_acceleration(q, dq, u);
         for(int i=0;i<3;++i){
-            dxdt(i)=x(i);
-            dxdt(i+3)=acc(i);
+            dxdt.at(i)=x.at(i+3);
+            dxdt.at(i+3)=acc(i);
         }
+
+        // std::cout<<"dxdt: [";
+        // std::for_each(dxdt.begin(),dxdt.end(),[](const double val){
+        //     std::cout<<val<<", ";
+        // });
+        // std::cout<<"]\n";
         
 
     };
@@ -97,12 +109,25 @@ int main()
 
     Eigen::VectorXd q = Eigen::VectorXd::Zero(3);
     Eigen::VectorXd dq = Eigen::VectorXd::Zero(3);
-    Eigen::VectorXd X = Eigen::VectorXd::Zero(6);
-    Eigen::VectorXd dX = Eigen::VectorXd::Zero(6);
-    Eigen::VectorXd tau = Eigen::VectorXd::Ones(3);
+    std::array<double,6> X = std::array<double,6>{};
+    std::array<double,6> dX = std::array<double,6>{};
+    Eigen::VectorXd tau = Eigen::VectorXd::Ones(3)*0.01;
     constexpr double temp_t{0.0};
+
+    using ArmStateType = std::array<double,6>;
+    using ArmControlInputType = Eigen::VectorXd;
+
+    SystemDynamics<ArmStateType, decltype(three_link_arm_dynamics_function), ArmControlInputType> arm{three_link_arm_dynamics_function};
+
+    runge_kutta_cash_karp54<ArmStateType> stepper;
+    for(int i=0;i<1000;++i){
+        arm.set_control_input(tau);
+        stepper.do_step(arm, X, 0.0, 0.01);
+    }
+
+
     three_link_arm_dynamics_function(X,dX,temp_t,tau);
-    std::cout<<"Final joint state: "<<dX.transpose()<<std::endl;
+    // std::cout<<"Final joint state: "<<dX.transpose()<<std::endl;
 
     auto print_control_input = [](std::vector<double> vec){
         for(const auto val: vec){
@@ -110,6 +135,7 @@ int main()
         }
         std::cout<<std::endl;
     };
+    print_control_input(std::vector<double>(dX.begin(), dX.end()));
 
     //Define hyper parameters about trajectory
     constexpr double horizon_duration_s{0.5};
@@ -121,10 +147,10 @@ int main()
     constexpr std::size_t num_buffer_steps = static_cast<std::size_t>(horizon_duration_s/horizon_dt);
 
     //Create MPC solver
-    MPC<state_type, decltype(mass_spring_damper_dynamics_function)> mpc{mass_spring_damper_dynamics_function};
+    MPC<state_type, decltype(mass_spring_damper_dynamics_function), double> mpc{mass_spring_damper_dynamics_function};
 
     //ODE stepper for simulation of plant
-    HorizonPrediction<state_type, decltype(mass_spring_damper_dynamics_function)> horizon_predictor{mass_spring_damper_dynamics_function};
+    HorizonPrediction<state_type, decltype(mass_spring_damper_dynamics_function), double> horizon_predictor{mass_spring_damper_dynamics_function};
 
     //Define initial sim conditions
     // std::vector<double> u0{1,2,3,-3,-2,0};
@@ -219,12 +245,12 @@ int main()
 
 
 
-    // //Plot final results of sim
-    plt::plot(sim_time_vec, desired_pos);
-    plt::plot(sim_time_vec, desired_vel);
-    plt::plot(sim_time_vec, pos,{{"linestyle", "--"}});
-    plt::plot(sim_time_vec, vel,{{"linestyle", "--"}});
-    plt::show();
+    // // //Plot final results of sim
+    // plt::plot(sim_time_vec, desired_pos);
+    // plt::plot(sim_time_vec, desired_vel);
+    // plt::plot(sim_time_vec, pos,{{"linestyle", "--"}});
+    // plt::plot(sim_time_vec, vel,{{"linestyle", "--"}});
+    // plt::show();
 
     return 0;
 }
